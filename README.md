@@ -13,3 +13,5 @@ JS at that time).
   Looking forwad to some Contributions 
 
   Anshuman.
+
+Framebuffer update: the shell now boots into a VBE linear framebuffer instead of VGA text / mode 13h, and the windowed editor launches as `Notepad.qbin` from the Start menu or the `notepad.qbin` command.

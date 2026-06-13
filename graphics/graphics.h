@@ -1,10 +1,9 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
-// VGA Mode 0x13 - 320x200, 256 colors
+// Default framebuffer-friendly layout values
 #define VGA_WIDTH   320
 #define VGA_HEIGHT  200
-#define VGA_MEMORY  0xA0000
 #define TASKBAR_H   14
 
 // Font size (8x8)
@@ -29,25 +28,30 @@
 #define COL_YELLOW   14
 #define COL_WHITE    15
 
+// Windows 95/98 style colors
+#define WIN95_FACE      7    // Light gray button face
+#define WIN95_HIGHLIGHT 15   // White (light edge)
+#define WIN95_SHADOW    8    // Dark gray (dark edge)
+#define WIN95_BG        7    // Light gray background
+#define WIN95_TEXT      0    // Black text
+#define WIN95_WHITE     15   // White
+
 // Core graphics
-void gfx_init();
+void gfx_init(unsigned char* framebuffer, int width, int height, int pitch, int bpp);
 void gfx_clear(unsigned char color);
 void gfx_pixel(int x, int y, unsigned char color);
 void gfx_rect(int x, int y, int w, int h, unsigned char color);
 void gfx_rect_fill(int x, int y, int w, int h, unsigned char color);
+void gfx_line(int x0, int y0, int x1, int y1, unsigned char color);
+void gfx_rect_beveled(int x, int y, int w, int h, unsigned char face, unsigned char highlight, unsigned char shadow);
 void gfx_char(int x, int y, char c, unsigned char fg, unsigned char bg);
 void gfx_str(int x, int y, const char* s, unsigned char fg, unsigned char bg);
 
-// Terminal
-void term_init();
-void term_putc(char c, unsigned char fg);
-void term_puts(const char* s, unsigned char fg);
-void term_putln(const char* s, unsigned char fg);
-void term_clear();
-void term_prompt();
-
-extern int term_cx;
-extern int term_cy;
+extern unsigned char* fb;
+extern int fb_width;
+extern int fb_height;
+extern int fb_pitch;
+extern int fb_bpp;
 
 // UI
 void ui_draw_desktop();

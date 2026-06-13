@@ -1,7 +1,11 @@
 #include "graphics.h"
 
 // ── Framebuffer ────────────────────────────
-static unsigned char* fb;
+unsigned char* fb;
+int fb_width = VGA_WIDTH;
+int fb_height = VGA_HEIGHT;
+int fb_pitch = VGA_WIDTH;
+int fb_bpp = 8;
 
 // ── 8x8 bitmap font (proper CP437 style) ───
 static const unsigned char font[128][8] = {
@@ -103,19 +107,25 @@ static const unsigned char font[128][8] = {
 };
 
 // ── VGA init ───────────────────────────────
-void gfx_init() {
-    fb = (unsigned char*)0xA0000;
+void gfx_init(unsigned char* framebuffer, int width, int height, int pitch, int bpp) {
+    fb = framebuffer;
+    fb_width = width;
+    fb_height = height;
+    fb_pitch = pitch;
+    fb_bpp = bpp;
 }
 
 // ── Core drawing ───────────────────────────
 void gfx_pixel(int x, int y, unsigned char color) {
-    if (x < 0 || x >= VGA_WIDTH || y < 0 || y >= VGA_HEIGHT) return;
-    fb[y * VGA_WIDTH + x] = color;
+    if (!fb) return;
+    if (x < 0 || x >= fb_width || y < 0 || y >= fb_height) return;
+    fb[y * fb_pitch + x] = color;
 }
 
 void gfx_clear(unsigned char color) {
     int i;
-    for (i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++)
+    if (!fb) return;
+    for (i = 0; i < fb_pitch * fb_height; i++)
         fb[i] = color;
 }
 
@@ -135,6 +145,39 @@ void gfx_rect(int x, int y, int w, int h, unsigned char color) {
     for (i = y; i < y+h; i++) {
         gfx_pixel(x, i, color);
         gfx_pixel(x+w-1, i, color);
+    }
+}
+
+// ── Line drawing (Bresenham-style for simplicity) ───
+void gfx_line(int x0, int y0, int x1, int y1, unsigned char color) {
+    int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+    int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
+    int sx = (x1 > x0) ? 1 : -1;
+    int sy = (y1 > y0) ? 1 : -1;
+    int err = (dx > dy ? dx : -dy) / 2;
+    int x = x0, y = y0;
+    while (1) {
+        gfx_pixel(x, y, color);
+        if (x == x1 && y == y1) break;
+        int e2 = err;
+        if (e2 > -dx) { err -= dy; x += sx; }
+        if (e2 < dy) { err += dx; y += sy; }
+    }
+}
+
+// ── Beveled rectangle (Windows 95/98 3D style) ───
+void gfx_rect_beveled(int x, int y, int w, int h, unsigned char face, unsigned char highlight, unsigned char shadow) {
+    int i;
+    // Fill interior with face color
+    gfx_rect_fill(x, y, w, h, face);
+    // Top and left edges: highlight (light)
+    for (i = x; i < x + w; i++) {
+        gfx_pixel(i, y, highlight);          // top edge
+        gfx_pixel(i, y + h - 1, shadow);     // bottom edge
+    }
+    for (i = y; i < y + h; i++) {
+        gfx_pixel(x, i, highlight);          // left edge
+        gfx_pixel(x + w - 1, i, shadow);     // right edge
     }
 }
 
@@ -179,15 +222,15 @@ static void pad2(unsigned char n, char* buf) {
 }
 
 // ── Terminal ───────────────────────────────
-int term_cx = 0;
-int term_cy = 0;
+static int term_cx = 0;
+static int term_cy = 0;
 #define TERM_COLS (VGA_WIDTH  / FONT_W)
 #define TERM_ROWS ((VGA_HEIGHT - TASKBAR_H) / FONT_H)
 #define TERM_BG   COL_BLACK
 #define TERM_X0   2
 #define TERM_Y0   2
 
-void term_scroll() {
+static void term_scroll() {
     int row, col, i, j;
     for (row = 0; row < TERM_ROWS-1; row++) {
         int src_y = TERM_Y0 + (row+1)*FONT_H;
@@ -200,12 +243,12 @@ void term_scroll() {
     term_cy = TERM_ROWS - 1;
 }
 
-void term_init() {
+static void term_init() {
     term_cx = 0;
     term_cy = 0;
 }
 
-void term_putc(char c, unsigned char fg) {
+static void term_putc(char c, unsigned char fg) {
     if (c == '\n') {
         term_cx = 0;
         term_cy++;
@@ -232,17 +275,17 @@ void term_putc(char c, unsigned char fg) {
     }
 }
 
-void term_puts(const char* s, unsigned char fg) {
+static void term_puts(const char* s, unsigned char fg) {
     int i;
     for (i = 0; s[i]; i++) term_putc(s[i], fg);
 }
 
-void term_putln(const char* s, unsigned char fg) {
+static void term_putln(const char* s, unsigned char fg) {
     term_puts(s, fg);
     term_putc('\n', fg);
 }
 
-void term_clear() {
+static void term_clear() {
     gfx_rect_fill(0, 0, VGA_WIDTH, VGA_HEIGHT - TASKBAR_H, TERM_BG);
     term_cx = 0;
     term_cy = 0;
@@ -334,7 +377,7 @@ void ui_draw_window(int x, int y, int w, int h, const char* title) {
     gfx_rect_fill(x+w-1, y, 1, h, 8);   // right shadow
 }
 
-void term_prompt() {
+static void term_prompt() {
     if (term_cy >= TERM_ROWS) term_cy = TERM_ROWS - 1;
     ui_draw_taskbar();
     term_puts("C:\\QRTOS> ", COL_LGREEN);

@@ -398,40 +398,42 @@ void run_command(char* cmd) {
     term_putln("  Type 'help' for commands.", COL_GREY);
 }
 
-// ── Kernel entry ───────────────────────────
+// ── Kernel entry ──────────────────────--
+
 void kernel_main() {
     gfx_init();
-    gfx_init();
-    // direct framebuffer write test
-    unsigned char* test_fb = (unsigned char*)0xA0000;
-    test_fb[0] = 15;   // white pixel at 0,0
-    test_fb[1] = 15;
-    test_fb[2] = 15;
-    test_fb[3] = 15;
-    test_fb[4] = 15;
-    term_init();
+ 
+    // boot screen
     ui_draw_boot_screen();
-    keyboard_init();
-
+ 
+    // delay so user can read boot screen
     volatile unsigned int d;
     for (d = 0; d < 400000000; d++);
-
-    term_clear();
+ 
+    // clear screen and start shell
+    gfx_clear(0);
+    term_init();
     term_cx = 0;
     term_cy = 0;
-    // direct test
-    gfx_str(0, 0, "HELLO WORLD", 15, 0);
-    term_prompt();
+ 
+    // enable keyboard
+    keyboard_init();
+ 
+    // show prompt
+    ui_draw_taskbar();
+    term_puts("C:\\QRTOS> ", COL_LGREEN);
+ 
     while (1) {
         char c = read_key();
         if (!c) continue;
-
+ 
         if (c == '\n') {
             input_buf[input_len] = '\0';
             term_putc('\n', COL_WHITE);
             if (input_len > 0) run_command(input_buf);
             input_len = 0;
-            term_prompt();
+            ui_draw_taskbar();
+            term_puts("C:\\QRTOS> ", COL_LGREEN);
         } else if (c == '\b') {
             if (input_len > 0) {
                 input_len--;
@@ -445,3 +447,4 @@ void kernel_main() {
         }
     }
 }
+ 

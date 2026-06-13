@@ -1,25 +1,14 @@
-[BITS 32]
+[BITS 64]
 
-extern kernel_main
-extern irq1_handler
 global _start
-global idt_flush
-global irq1_wrapper
+extern kernel_main
 
+section .text
 _start:
-    mov esp, 0x7FF00
-    mov ebp, 0x7FF00
-    call kernel_main
     cli
+    xor rbp, rbp
+    mov rsp, 0x7FF00
+    call kernel_main
+.halt:
     hlt
-
-idt_flush:
-    mov eax, [esp+4]
-    lidt [eax]
-    ret
-
-irq1_wrapper:
-    pusha
-    call irq1_handler
-    popa
-    iret
+    jmp .halt
